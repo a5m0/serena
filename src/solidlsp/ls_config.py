@@ -53,6 +53,7 @@ class Language(str, Enum):
     NIX = "nix"
     ERLANG = "erlang"
     AL = "al"
+    NIM = "nim"
     # Experimental or deprecated Language Servers
     TYPESCRIPT_VTS = "typescript_vts"
     """Use the typescript language server through the natively bundled vscode extension via https://github.com/yioneko/vtsls"""
@@ -141,6 +142,9 @@ class Language(str, Enum):
 
     def get_ls_class(self) -> type["SolidLanguageServer"]:
         match self:
+            case self.NIM:
+                from solidlsp.language_servers.nim_language_server import NimLanguageServer
+                return NimLanguageServer
             case self.PYTHON:
                 from solidlsp.language_servers.pyright_server import PyrightServer
 
