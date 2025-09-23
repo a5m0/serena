@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 from pathlib import Path
+import threading
 from typing import List, Optional, Dict, Any
 import os
 import logging
@@ -32,7 +33,9 @@ class NimLanguageServer(SolidLanguageServer):
             cwd=repository_root_path,
         )
         super().__init__(config, logger, repository_root_path, process_launch_info, self.LANGUAGE_ID, solidlsp_settings)
-        # Mark server readiness flags (nim LSPs are typically ready after initialize)
+        # create readiness events similar to other LS adapters
+        self.server_ready = threading.Event()
+        # Nim LSPs are typically ready after initialize
         self.server_ready.set()
         self.completions_available.set()
 
