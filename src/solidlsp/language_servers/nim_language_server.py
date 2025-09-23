@@ -22,11 +22,17 @@ class NimLanguageServer(SolidLanguageServer):
     DEFAULT_CMD: List[str] = ["nimlangserver"]  # or: ["nimlsp"]
 
     def __init__(self, config: LanguageServerConfig, logger: LanguageServerLogger, repository_root_path: str, solidlsp_settings: SolidLSPSettings):
+        # Read any language-specific overrides from SolidLSPSettings
+        ls_specific = solidlsp_settings.ls_specific_settings or {}
+        # store a dict of language-specific settings for easier access in methods
+        self.language_specific_settings = ls_specific.get(self.get_language_enum_instance(), {})
+
         process_launch_info = ProcessLaunchInfo(
             cmd=self._server_command(),
-            cwd=repository_root_path
+            cwd=repository_root_path,
         )
         super().__init__(config, logger, repository_root_path, process_launch_info, self.LANGUAGE_ID, solidlsp_settings)
+        # Mark server readiness flags (nim LSPs are typically ready after initialize)
         self.server_ready.set()
         self.completions_available.set()
 
@@ -49,7 +55,7 @@ class NimLanguageServer(SolidLanguageServer):
     # Command to start the server
     def _server_command(self) -> List[str]:
         # Allow override from config if provided
-        cfg_cmd = self.config.get("nim_language_server_command")
+        cfg_cmd = self.language_specific_settings.get("nim_language_server_command")
         if cfg_cmd and isinstance(cfg_cmd, list):
             return cfg_cmd
         return self.DEFAULT_CMD
@@ -64,11 +70,12 @@ class NimLanguageServer(SolidLanguageServer):
 
     # Optionally pass initOptions through config
     def initialization_options(self) -> Optional[Dict[str, Any]]:
-        return self.config.get("nim_initialization_options")
+        return self.language_specific_settings.get("nim_initialization_options")
 
     # Root detection: use repo root already determined by Solid-LSP
     def workspace_folders(self) -> Optional[List[Dict[str, str]]]:
+        repo_path = Path(self.repository_root_path)
         return [{
-            "uri": self.repository_root_path.as_uri(),
-            "name": self.repository_root_path.name,
+            "uri": repo_path.as_uri(),
+            "name": repo_path.name,
         }]
