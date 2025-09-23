@@ -2,10 +2,10 @@
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
-from solidlsp.ls import SolidLanguageServer
-from solidlsp.language_servers.common import ExternalLanguageServer
 
-class NimLanguageServer(ExternalLanguageServer):
+from solidlsp.ls import SolidLanguageServer
+
+class NimLanguageServer(SolidLanguageServer):
     """
     Minimal Nim LSP adapter for Serena / Solid-LSP.
 
