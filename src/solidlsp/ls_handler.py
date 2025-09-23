@@ -489,11 +489,13 @@ class SolidLanguageServerHandler:
             return
         self._log(payload)
         msg = create_message(payload)
-
         # Use lock to prevent concurrent writes to stdin that cause buffer corruption
         with self._stdin_lock:
             try:
-                self.process.stdin.writelines(msg)
+                # Write the whole message atomically to avoid fragmentation problems with some language servers
+                # msg is a tuple of (header, content-type, body) bytes; join them into a single bytes object
+                full_msg = b"".join(msg)
+                self.process.stdin.write(full_msg)
                 self.process.stdin.flush()
             except (BrokenPipeError, ConnectionResetError, OSError) as e:
                 # Log the error but don't raise to prevent cascading failures
