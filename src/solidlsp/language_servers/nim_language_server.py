@@ -23,7 +23,7 @@ class NimLanguageServer(SolidLanguageServer):
 
     def __init__(self, config: LanguageServerConfig, logger: LanguageServerLogger, repository_root_path: str, solidlsp_settings: SolidLSPSettings):
         process_launch_info = ProcessLaunchInfo(
-            cmd=self._server_command(config.config),
+            cmd=self._server_command(),
             cwd=repository_root_path
         )
         super().__init__(config, logger, repository_root_path, process_launch_info, self.LANGUAGE_ID, solidlsp_settings)
@@ -47,9 +47,9 @@ class NimLanguageServer(SolidLanguageServer):
         self.server.notify.initialized({})
 
     # Command to start the server
-    def _server_command(self, config: Dict[str, Any]) -> List[str]:
+    def _server_command(self) -> List[str]:
         # Allow override from config if provided
-        cfg_cmd = config.get("nim_language_server_command")
+        cfg_cmd = self.config.get("nim_language_server_command")
         if cfg_cmd and isinstance(cfg_cmd, list):
             return cfg_cmd
         return self.DEFAULT_CMD
