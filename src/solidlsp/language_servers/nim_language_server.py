@@ -40,7 +40,24 @@ class NimLanguageServer(SolidLanguageServer):
         self.completions_available.set()
 
     def _start_server(self):
-        # Prepare initialization parameters
+        """Start Nim LSP, send initialize request and wait for response."""
+
+        def do_nothing(params):
+            return
+
+        def window_log_message(msg):
+            # log server messages
+            self.logger.log(f"LSP: window/logMessage: {msg}", logging.INFO)
+
+        # register common handlers
+        self.server.on_notification("window/logMessage", window_log_message)
+        self.server.on_notification("$/progress", do_nothing)
+        self.server.on_notification("textDocument/publishDiagnostics", do_nothing)
+
+        self.logger.log("Starting Nim server process", logging.INFO)
+        self.server.start()
+
+        # Prepare initialization params
         root_uri = Path(self.repository_root_path).as_uri()
         init_options = self.initialization_options() or {}
         initialize_params = {
@@ -51,9 +68,30 @@ class NimLanguageServer(SolidLanguageServer):
             "initializationOptions": init_options,
             "workspaceFolders": self.workspace_folders(),
         }
-        self.logger.log("Sending initialize request to Nim LSP server", logging.INFO)
-        self.server.send.initialize(initialize_params)
+
+        self.logger.log(
+            "Sending initialize request from LSP client to Nim LSP server and awaiting response",
+            logging.INFO,
+        )
+        init_response = self.server.send.initialize(initialize_params)
+        self.logger.log(f"Received initialize response from nim server: {init_response}", logging.DEBUG)
+
+        # Basic capability checks (be lenient: different servers may report different capabilities)
+        try:
+            if "capabilities" in init_response:
+                caps = init_response["capabilities"]
+                # completion provider is commonly available
+                if "completionProvider" in caps:
+                    self.completions_available.set()
+        except Exception:
+            # don't fail here; fall through and mark server ready
+            pass
+
+        # Notify the server we are initialized
         self.server.notify.initialized({})
+
+        # mark ready
+        self.server_ready.set()
 
     # Command to start the server
     def _server_command(self) -> List[str]:
