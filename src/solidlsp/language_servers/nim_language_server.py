@@ -1,39 +1,16 @@
 # SPDX-License-Identifier: MIT
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-
+import os
+import logging
 
 from solidlsp.ls import SolidLanguageServer
+from solidlsp.ls_config import LanguageServerConfig
+from solidlsp.ls_logger import LanguageServerLogger
+from solidlsp.lsp_protocol_handler.server import ProcessLaunchInfo
+from solidlsp.settings import SolidLSPSettings
 
 class NimLanguageServer(SolidLanguageServer):
-    def _start_server(self):
-        # Start the Nim language server process
-        from solidlsp.lsp_protocol_handler.server import ProcessLaunchInfo
-        import os
-        import pathlib
-        import logging
-
-        cmd = self._server_command()
-        cwd = str(self.repository_root_path)
-        self.logger.log(f"Starting Nim language server with command: {cmd} in {cwd}", logging.INFO)
-        self.server.start_process(ProcessLaunchInfo(cmd=cmd, cwd=cwd))
-
-        # Prepare initialization parameters
-        root_uri = pathlib.Path(cwd).as_uri()
-        init_options = self.initialization_options() or {}
-        initialize_params = {
-            "processId": os.getpid(),
-            "rootPath": cwd,
-            "rootUri": root_uri,
-            "capabilities": {},
-            "initializationOptions": init_options,
-            "workspaceFolders": self.workspace_folders(),
-        }
-        self.logger.log("Sending initialize request to Nim LSP server", logging.INFO)
-        init_response = self.server.send.initialize(initialize_params)
-        self.server.notify.initialized({})
-        self.server_ready.set()
-        self.completions_available.set()
     """
     Minimal Nim LSP adapter for Serena / Solid-LSP.
 
@@ -44,13 +21,35 @@ class NimLanguageServer(SolidLanguageServer):
     FILE_EXTENSIONS = [".nim", ".nims"]
     DEFAULT_CMD: List[str] = ["nimlangserver"]  # or: ["nimlsp"]
 
-    def __init__(self, config: Dict[str, Any], logger, repository_root_path: Path):
-        super().__init__(config, logger, repository_root_path)
+    def __init__(self, config: LanguageServerConfig, logger: LanguageServerLogger, repository_root_path: str, solidlsp_settings: SolidLSPSettings):
+        process_launch_info = ProcessLaunchInfo(
+            cmd=self._server_command(config.config),
+            cwd=repository_root_path
+        )
+        super().__init__(config, logger, repository_root_path, process_launch_info, self.LANGUAGE_ID, solidlsp_settings)
+        self.server_ready.set()
+        self.completions_available.set()
+
+    def _start_server(self):
+        # Prepare initialization parameters
+        root_uri = Path(self.repository_root_path).as_uri()
+        init_options = self.initialization_options() or {}
+        initialize_params = {
+            "processId": os.getpid(),
+            "rootPath": self.repository_root_path,
+            "rootUri": root_uri,
+            "capabilities": {},
+            "initializationOptions": init_options,
+            "workspaceFolders": self.workspace_folders(),
+        }
+        self.logger.log("Sending initialize request to Nim LSP server", logging.INFO)
+        self.server.send.initialize(initialize_params)
+        self.server.notify.initialized({})
 
     # Command to start the server
-    def _server_command(self) -> List[str]:
+    def _server_command(self, config: Dict[str, Any]) -> List[str]:
         # Allow override from config if provided
-        cfg_cmd = self.config.get("nim_language_server_command")
+        cfg_cmd = config.get("nim_language_server_command")
         if cfg_cmd and isinstance(cfg_cmd, list):
             return cfg_cmd
         return self.DEFAULT_CMD
